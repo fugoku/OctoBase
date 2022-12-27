@@ -8,6 +8,8 @@ use std::{
 };
 use tokio::io;
 
+type DatabasePool = sqlx::SqlitePool;
+
 #[derive(sqlx::FromRow, Debug, PartialEq)]
 pub struct BlobBinary {
     pub hash: String,
@@ -179,21 +181,6 @@ impl SQLite {
         query(&stmt).execute(&self.pool).await?;
         Ok(())
     }
-
-    pub async fn get_hash(stream: impl Stream<Item = Bytes> + Send) -> (String, Vec<u8>) {
-        let mut hasher = Sha256::new();
-
-        let buffer = stream
-            .flat_map(|buffer| {
-                hasher.update(&buffer);
-                iter(buffer)
-            })
-            .collect()
-            .await;
-
-        let hash = base64::encode_engine(hasher.finalize(), &URL_SAFE_ENGINE);
-        (hash, buffer)
-    }
 }
 
 #[async_trait]
@@ -222,7 +209,7 @@ impl BlobStorage for SQLite {
     ) -> io::Result<String> {
         let workspace = workspace.unwrap_or("__default__".into());
 
-        let (hash, blob) = Self::get_hash(stream).await;
+        let (hash, blob) = get_hash(stream).await;
 
         if self.insert(&workspace, &hash, &blob).await.is_ok() {
             Ok(hash)
@@ -256,7 +243,7 @@ mod tests {
         use std::str::FromStr;
         let path = format!("sqlite::memory:");
         let options = SqliteConnectOptions::from_str(&path)?.create_if_missing(true);
-        let pool = sqlx::SqlitePool::connect_with(options).await?;
+        let pool = DatabasePool::connect_with(options).await?;
         Ok(SQLite {
             pool,
             workspaces: Arc::default(),
