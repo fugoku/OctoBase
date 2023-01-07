@@ -20,50 +20,6 @@ use jwst_storage::Claims;
 use mime::APPLICATION_OCTET_STREAM;
 use std::sync::Arc;
 
-pub async fn get_blob_in_workspace(
-    Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
-    Path((workspace_id, id)): Path<(String, String)>,
-    method: http::Method,
-    headers: HeaderMap,
-) -> Response {
-    match ctx
-        .db
-        .can_read_workspace(claims.user.id, workspace_id.clone())
-        .await
-    {
-        Ok(true) => (),
-        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    }
-
-    ctx.get_blob(Some(workspace_id), id, method, headers).await
-}
-
-pub async fn upload_blob_in_workspace(
-    Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
-    Path(workspace_id): Path<String>,
-    TypedHeader(length): TypedHeader<ContentLength>,
-    stream: BodyStream,
-) -> Response {
-    if length.0 > 10 * 1024 * 1024 {
-        return StatusCode::PAYLOAD_TOO_LARGE.into_response();
-    }
-
-    match ctx
-        .db
-        .can_read_workspace(claims.user.id, workspace_id.clone())
-        .await
-    {
-        Ok(true) => (),
-        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    }
-
-    ctx.upload_blob(stream, Some(workspace_id)).await
-}
-
 impl Context {
     async fn get_blob(
         &self,
@@ -94,23 +50,19 @@ impl Context {
 
         let mut header = HeaderMap::with_capacity(5);
         header.insert(ETAG, HeaderValue::from_str(&id).unwrap());
-
         header.insert(
             CONTENT_TYPE,
-            HeaderValue::from_str(&APPLICATION_OCTET_STREAM.to_string()).unwrap(),
+            HeaderValue::from_static(APPLICATION_OCTET_STREAM.essence_str()),
         );
-
         header.insert(
             LAST_MODIFIED,
             HeaderValue::from_str(&DateTime::<Utc>::from_utc(meta.last_modified, Utc).to_rfc2822())
                 .unwrap(),
         );
-
         header.insert(
             CONTENT_LENGTH,
             HeaderValue::from_str(&meta.size.to_string()).unwrap(),
         );
-
         header.insert(
             CACHE_CONTROL,
             HeaderValue::from_str("public, immutable, max-age=31536000").unwrap(),
@@ -170,4 +122,48 @@ pub async fn upload_blob(
     }
 
     ctx.upload_blob(stream, None).await
+}
+
+pub async fn get_blob_in_workspace(
+    Extension(ctx): Extension<Arc<Context>>,
+    Extension(claims): Extension<Arc<Claims>>,
+    Path((workspace_id, id)): Path<(String, String)>,
+    method: http::Method,
+    headers: HeaderMap,
+) -> Response {
+    match ctx
+        .db
+        .can_read_workspace(claims.user.id, workspace_id.clone())
+        .await
+    {
+        Ok(true) => (),
+        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+
+    ctx.get_blob(Some(workspace_id), id, method, headers).await
+}
+
+pub async fn upload_blob_in_workspace(
+    Extension(ctx): Extension<Arc<Context>>,
+    Extension(claims): Extension<Arc<Claims>>,
+    Path(workspace_id): Path<String>,
+    TypedHeader(length): TypedHeader<ContentLength>,
+    stream: BodyStream,
+) -> Response {
+    if length.0 > 10 * 1024 * 1024 {
+        return StatusCode::PAYLOAD_TOO_LARGE.into_response();
+    }
+
+    match ctx
+        .db
+        .can_read_workspace(claims.user.id, workspace_id.clone())
+        .await
+    {
+        Ok(true) => (),
+        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+
+    ctx.upload_blob(stream, Some(workspace_id)).await
 }
