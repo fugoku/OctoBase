@@ -9,7 +9,7 @@ name = "jwst_doc_migration"
 path = "src/lib.rs"
 
 [dependencies]
-tokio = "^1"
+tokio = { version = "^1", features = ["macros"] }
 
 [dependencies.sea-orm-migration]
 version = "^0.10.0"
