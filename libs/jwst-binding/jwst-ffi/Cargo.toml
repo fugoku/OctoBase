@@ -13,7 +13,6 @@ yrs = "0.16.2"
 jwst = { path = "../../jwst" }
 
 [lib]
-name = "octobase"
 crate-type = ["staticlib"]
 
 [build-dependencies]
