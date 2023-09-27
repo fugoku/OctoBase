@@ -25,16 +25,6 @@ fn update(c: &mut Criterion) {
                 });
             },
         );
-        group.bench_with_input(
-            BenchmarkId::new("parse with yrs", file.path.name_str()),
-            &file.content,
-            |b, content| {
-                b.iter(|| {
-                    use yrs::{updates::decoder::Decode, Update};
-                    Update::decode_v1(&content).unwrap()
-                });
-            },
-        );
     }
 
     group.finish();
